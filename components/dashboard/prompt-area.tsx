@@ -6,6 +6,8 @@ import * as PopoverPrimitive from "@radix-ui/react-popover";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@/lib/utils"
 import { BorderBeam } from "@/components/ui/border-beam"
+import Image from "next/image"
+import { createClient } from "@/lib/supabase/client"
 
 // --- Radix Primitives ---
 const TooltipProvider = TooltipPrimitive.Provider;
@@ -37,21 +39,84 @@ const LightbulbIcon = (props: React.SVGProps<SVGSVGElement>) => (<svg viewBox="0
 const MicIcon = (props: React.SVGProps<SVGSVGElement>) => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}> <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path> <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path> <line x1="12" y1="19" x2="12" y2="23"></line> </svg>);
 
 const toolsList = [
-    { id: 'createImage', name: 'Create an image', shortName: 'Image', icon: PaintBrushIcon },
-    { id: 'searchWeb', name: 'Search the web', shortName: 'Search', icon: GlobeIcon },
-    { id: 'writeCode', name: 'Write or code', shortName: 'Write', icon: PencilIcon },
-    { id: 'deepResearch', name: 'Run deep research', shortName: 'Deep Search', icon: TelescopeIcon, extra: '5 left' },
-    { id: 'thinkLonger', name: 'Think for longer', shortName: 'Think', icon: LightbulbIcon },
+    { id: 'imageRef', name: 'Reference Gallery', shortName: 'Ref', icon: PaintBrushIcon },
 ];
 
 export const PromptArea = () => {
     const internalTextareaRef = React.useRef<HTMLTextAreaElement>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [value, setValue] = React.useState("");
-    const [imagePreview, setImagePreview] = React.useState<string | null>(null);
+    const [imagePreviews, setImagePreviews] = React.useState<string[]>([]);
     const [selectedTool, setSelectedTool] = React.useState<string | null>(null);
     const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
-    const [isImageDialogOpen, setIsImageDialogOpen] = React.useState(false);
+    const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
+    const [isLoading, setIsLoading] = React.useState(false);
+    const [userThumbnails, setUserThumbnails] = React.useState<any[]>([]);
+
+    const fetchThumbnails = async () => {
+        const supabase = createClient();
+        const { data } = await supabase.from("thumbnails").select("*").order("created_at", { ascending: false }).limit(20);
+        if (data) setUserThumbnails(data);
+    };
+
+    React.useEffect(() => {
+        fetchThumbnails();
+    }, []);
+
+    const handleSubmit = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (!hasValue || isLoading) return;
+
+        setIsLoading(true);
+        // Dispatch generating started event
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('generatingStarted', { detail: { prompt: value } }));
+        }
+
+        try {
+            const response = await fetch("/api/generate", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    prompt: value,
+                    images: imagePreviews,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Failed to generate image");
+            }
+
+            const data = await response.json();
+            console.log("Generated image:", data.url);
+
+            // Clear input after success
+            setValue("");
+            setImagePreviews([]);
+
+            // Dispatch success event
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('thumbnailGenerated', { detail: data }));
+            }
+        } catch (error: any) {
+            console.error("Submission error:", error);
+            // Dispatch error event instead of alert
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('generatingError', {
+                    detail: { message: error.message || "Failed to generate your masterpiece" }
+                }));
+            }
+        } finally {
+            setIsLoading(false);
+            // Dispatch generating finished event (even on error to hide loader)
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('generatingFinished'));
+            }
+        }
+    };
 
     React.useLayoutEffect(() => {
         const textarea = internalTextareaRef.current;
@@ -71,26 +136,37 @@ export const PromptArea = () => {
     };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file && file.type.startsWith("image/")) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImagePreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+        const files = Array.from(event.target.files || []);
+        if (files.length === 0) return;
+
+        if (imagePreviews.length + files.length > 10) {
+            alert("Maximum 10 images allowed");
+            event.target.value = "";
+            return;
         }
+
+        files.forEach(file => {
+            if (file.size > 5 * 1024 * 1024) {
+                alert(`File ${file.name} is too large (> 5MB)`);
+                return;
+            }
+
+            if (file.type.startsWith("image/")) {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setImagePreviews(prev => [...prev, reader.result as string]);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
         event.target.value = "";
     };
 
-    const handleRemoveImage = (e: React.MouseEvent<HTMLButtonElement>) => {
-        e.stopPropagation();
-        setImagePreview(null);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
+    const handleRemoveImage = (index: number) => {
+        setImagePreviews(prev => prev.filter((_, i) => i !== index));
     };
 
-    const hasValue = value.trim().length > 0 || imagePreview;
+    const hasValue = value.trim().length > 0 || imagePreviews.length > 0;
     const activeTool = selectedTool ? toolsList.find(t => t.id === selectedTool) : null;
     const ActiveToolIcon = activeTool?.icon;
 
@@ -121,20 +197,33 @@ export const PromptArea = () => {
 
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
 
-                {imagePreview && (
-                    <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
-                        <div className="relative mb-2 ml-2 mt-2 w-fit rounded-[1.2rem] overflow-hidden group/img">
-                            <button type="button" className="transition-transform active:scale-95" onClick={() => setIsImageDialogOpen(true)}>
-                                <img src={imagePreview} alt="Image preview" className="h-20 w-20 object-cover" />
-                            </button>
-                            <button onClick={handleRemoveImage} className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white transition-opacity hover:bg-black/80" aria-label="Remove image">
-                                <XIcon className="h-4 w-4" />
-                            </button>
-                        </div>
-                        <DialogContent>
-                            <img src={imagePreview} alt="Full size preview" className="w-full max-h-[90vh] object-contain rounded-[24px]" />
-                        </DialogContent>
-                    </Dialog>
+                {imagePreviews.length > 0 && (
+                    <div className="flex flex-wrap gap-2 px-4 pt-4">
+                        {imagePreviews.map((preview, index) => (
+                            <div key={index} className="relative group/img h-20 w-20 rounded-[1.2rem] overflow-hidden border border-white/10">
+                                <button type="button" className="h-full w-full transition-transform active:scale-95" onClick={() => setPreviewIndex(index)}>
+                                    <Image src={preview} alt={`Preview ${index}`} fill className="object-cover" />
+                                </button>
+                                <button
+                                    onClick={() => handleRemoveImage(index)}
+                                    className="absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition-opacity hover:bg-red-500"
+                                    aria-label="Remove image"
+                                >
+                                    <XIcon className="h-3 w-3" />
+                                </button>
+                            </div>
+                        ))}
+
+                        <Dialog open={previewIndex !== null} onOpenChange={(open) => !open && setPreviewIndex(null)}>
+                            <DialogContent>
+                                {previewIndex !== null && (
+                                    <div className="relative w-full aspect-video md:aspect-auto md:h-[70vh]">
+                                        <Image src={imagePreviews[previewIndex]} alt="Full size preview" fill className="object-contain rounded-[24px]" />
+                                    </div>
+                                )}
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                 )}
 
                 <textarea
@@ -142,8 +231,15 @@ export const PromptArea = () => {
                     rows={1}
                     value={value}
                     onChange={handleInputChange}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSubmit();
+                        }
+                    }}
+                    disabled={isLoading}
                     placeholder="Visualize your vision... (e.g., 'A high-contrast gaming thumbnail with neon flares')"
-                    className="w-full resize-none border-0 bg-transparent px-4 py-3 text-white placeholder:text-zinc-500 focus:ring-0 focus-visible:outline-none min-h-[56px] text-lg leading-relaxed"
+                    className="w-full resize-none border-0 bg-transparent px-4 py-3 text-white placeholder:text-zinc-500 focus:ring-0 focus-visible:outline-none min-h-[56px] text-lg leading-relaxed disabled:opacity-50"
                 />
 
                 <div className="mt-1 p-1">
@@ -158,31 +254,46 @@ export const PromptArea = () => {
                                 <TooltipContent side="top" showArrow={true}><p>Attach assets</p></TooltipContent>
                             </Tooltip>
 
-                            <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                            <Popover open={isPopoverOpen} onOpenChange={(open) => { setIsPopoverOpen(open); if (open) fetchThumbnails(); }}>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <PopoverTrigger asChild>
                                             <button type="button" className="flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium text-zinc-400 transition-all hover:bg-white/10 hover:text-white active:scale-95">
-                                                <Settings2Icon className="h-4.5 w-4.5" />
-                                                {!selectedTool && 'Explore Capabilities'}
+                                                <PaintBrushIcon className="h-4.5 w-4.5" />
+                                                {!selectedTool && 'Reference Works'}
                                             </button>
                                         </PopoverTrigger>
                                     </TooltipTrigger>
-                                    <TooltipContent side="top" showArrow={true}><p>Explore AI capabilities</p></TooltipContent>
+                                    <TooltipContent side="top" showArrow={true}><p>Choose from your gallery</p></TooltipContent>
                                 </Tooltip>
-                                <PopoverContent side="top" align="start">
-                                    <div className="flex flex-col gap-1 p-1">
-                                        {toolsList.map(tool => (
-                                            <button
-                                                key={tool.id}
-                                                onClick={() => { setSelectedTool(tool.id); setIsPopoverOpen(false); }}
-                                                className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left text-sm hover:bg-white/5 transition-colors"
-                                            >
-                                                <tool.icon className="h-4.5 w-4.5 text-zinc-300" />
-                                                <span className="font-medium">{tool.name}</span>
-                                                {tool.extra && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold uppercase tracking-wider">{tool.extra}</span>}
-                                            </button>
-                                        ))}
+                                <PopoverContent side="top" align="start" className="w-80">
+                                    <div className="flex flex-col gap-3 p-1">
+                                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest px-1">Your Masterpieces</p>
+                                        <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                                            {userThumbnails.map(thumb => (
+                                                <button
+                                                    key={thumb.id}
+                                                    onClick={() => {
+                                                        if (imagePreviews.length < 10) {
+                                                            setImagePreviews(prev => [...prev, thumb.image_url]);
+                                                            setSelectedTool('imageRef');
+                                                        } else {
+                                                            alert("Maximum 10 images allowed");
+                                                        }
+                                                        setIsPopoverOpen(false);
+                                                    }}
+                                                    className="relative aspect-video rounded-lg overflow-hidden border border-white/5 hover:border-blue-500/50 transition-all group"
+                                                >
+                                                    <Image src={thumb.image_url} alt={thumb.prompt} fill className="object-cover group-hover:scale-110 transition-transform" />
+                                                    <div className="absolute inset-0 bg-blue-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                </button>
+                                            ))}
+                                            {userThumbnails.length === 0 && (
+                                                <div className="col-span-3 py-8 text-center text-xs text-zinc-600">No works to reference</div>
+                                            )}
+                                        </div>
+                                        <div className="h-px bg-white/5" />
+                                        <p className="text-[9px] text-zinc-600 px-1 text-center italic">Select an image to use as a visual reference</p>
                                     </div>
                                 </PopoverContent>
                             </Popover>
@@ -198,24 +309,20 @@ export const PromptArea = () => {
                             <div className="ml-auto flex items-center gap-2">
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-400 transition-all hover:bg-white/10 hover:text-white active:scale-90">
-                                            <MicIcon className="h-5 w-5" />
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" showArrow={true}><p>Voice input</p></TooltipContent>
-                                </Tooltip>
-
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
                                         <button
-                                            type="submit"
-                                            disabled={!hasValue}
+                                            type="button"
+                                            onClick={() => handleSubmit()}
+                                            disabled={!hasValue || isLoading}
                                             className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-30 bg-blue-600 text-white hover:bg-blue-500 hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] active:scale-90"
                                         >
-                                            <SendIcon className="h-6 w-6" />
+                                            {isLoading ? (
+                                                <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            ) : (
+                                                <SendIcon className="h-6 w-6" />
+                                            )}
                                         </button>
                                     </TooltipTrigger>
-                                    <TooltipContent side="top" showArrow={true}><p>Nail it!</p></TooltipContent>
+                                    <TooltipContent side="top" showArrow={true}><p>{isLoading ? 'Nailing it...' : 'Nail it!'}</p></TooltipContent>
                                 </Tooltip>
                             </div>
                         </div>
