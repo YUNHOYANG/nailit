@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import Link from "next/link"
 import Floating, { FloatingElement } from "./floating"
 import { cn } from "@/lib/utils"
 
@@ -64,39 +65,39 @@ export const Hero = () => {
                     <ThumbnailSkeleton className="w-56 rotate-[5deg] blur-[1px]" />
                 </FloatingElement>
                 <FloatingElement depth={1.5} className="bottom-[30%] right-[10%] opacity-20">
-                    <YoutubeIcon className="w-16 h-16 text-red-500/40 blur-[2px]" />
+                    <YoutubeIcon className="w-16 h-16 text-blue-500/40 blur-[2px]" />
                 </FloatingElement>
 
                 {/* Abstract Blobs */}
                 <FloatingElement depth={0.4} className="top-[20%] left-1/2 -ml-[300px] -z-10">
-                    <div className="w-[600px] h-[600px] bg-red-600/10 rounded-full blur-[120px]" />
+                    <div className="w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px]" />
                 </FloatingElement>
                 <FloatingElement depth={0.6} className="bottom-[10%] right-[20%] -z-10">
-                    <div className="w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[100px]" />
+                    <div className="w-[500px] h-[500px] bg-cyan-600/10 rounded-full blur-[100px]" />
                 </FloatingElement>
             </Floating>
 
             {/* Main Content */}
             <div className="relative z-10 text-center px-4 max-w-5xl">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm font-medium mb-8 animate-fade-in backdrop-blur-md">
-                    <SparkleIcon className="w-4 h-4 text-red-500" />
-                    <span>NailIt Studio — AI YouTube Thumbnail Generator</span>
+                    <SparkleIcon className="w-4 h-4 text-blue-500" />
+                    <span>Nail-It Studio — AI YouTube Thumbnail Generator</span>
                 </div>
 
                 <h1 className="text-6xl md:text-8xl font-bold tracking-tight mb-8 bg-gradient-to-b from-white to-white/50 bg-clip-text text-transparent">
-                    Nail your <span className="bg-gradient-to-r from-red-500 to-purple-500 bg-clip-text text-transparent">CTR</span> with AI
+                    Nail your <span className="bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent">CTR</span> with AI
                 </h1>
 
                 <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-12">
-                    Stop guessing what works. NailIt analyzes viral trends and psychological triggers
+                    Stop guessing what works. Nail-It analyzes viral trends and psychological triggers
                     to generate high-converting thumbnails that drive massive growth to your channel.
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                    <button className="group relative px-8 py-4 bg-red-600 text-white rounded-full font-semibold overflow-hidden transition-all hover:bg-red-700 active:scale-95">
+                    <Link href="/auth" className="group relative px-8 py-4 bg-blue-600 text-white rounded-full font-semibold overflow-hidden transition-all hover:bg-blue-700 active:scale-95">
                         <span className="relative z-10">Start for Free</span>
                         <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-                    </button>
+                    </Link>
                     <button className="px-8 py-4 bg-white/5 border border-white/10 rounded-full font-semibold hover:bg-white/10 transition-all backdrop-blur-sm">
                         How it works
                     </button>
@@ -110,7 +111,7 @@ export const Hero = () => {
                 </FloatingElement>
                 <FloatingElement depth={2.5} className="bottom-[45%] right-[25%] opacity-40">
                     <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl -rotate-10 shadow-2xl">
-                        <YoutubeIcon className="w-8 h-8 text-red-500" />
+                        <YoutubeIcon className="w-8 h-8 text-blue-500" />
                         <div className="mt-2 space-y-1">
                             <div className="w-20 h-2 bg-white/20 rounded-full" />
                             <div className="w-12 h-2 bg-white/10 rounded-full" />
@@ -121,7 +122,7 @@ export const Hero = () => {
 
             {/* Scroll Indicator */}
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-50">
-                <div className="w-px h-12 bg-gradient-to-b from-red-500/50 via-white/20 to-transparent" />
+                <div className="w-px h-12 bg-gradient-to-b from-blue-500/50 via-white/20 to-transparent" />
                 <span className="text-[10px] uppercase tracking-widest font-medium">Scroll to explore</span>
             </div>
         </section>
