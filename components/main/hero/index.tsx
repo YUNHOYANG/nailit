@@ -4,6 +4,7 @@ import React from "react"
 import Link from "next/link"
 import Floating, { FloatingElement } from "./floating"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/hooks/use-auth"
 
 const YoutubeIcon = ({ className }: { className?: string }) => (
     <svg
@@ -50,6 +51,7 @@ const ThumbnailSkeleton = ({ className }: { className?: string }) => (
 )
 
 export const Hero = () => {
+    const { user } = useAuth()
     return (
         <section className="relative min-h-screen w-full flex flex-col items-center justify-center overflow-hidden bg-black text-white">
             {/* Background Parallax Elements */}
@@ -81,21 +83,22 @@ export const Hero = () => {
             <div className="relative z-10 text-center px-4 max-w-5xl">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm font-medium mb-8 animate-fade-in backdrop-blur-md">
                     <SparkleIcon className="w-4 h-4 text-blue-500" />
-                    <span>Nail-It Studio — AI YouTube Thumbnail Generator</span>
+                    <span>The Ultimate AI Arsenal for Modern Creators</span>
                 </div>
 
-                <h1 className="text-6xl md:text-8xl font-bold tracking-tight mb-8 bg-gradient-to-b from-white to-white/50 bg-clip-text text-transparent">
-                    Nail your <span className="bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent">CTR</span> with AI
+                <h1 className="text-6xl md:text-8xl font-bold tracking-tight mb-8 bg-gradient-to-b from-white to-white/50 bg-clip-text text-transparent leading-[1.1]">
+                    Dominate the Feed <br />
+                    <span className="bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent">with AI Precision</span>
                 </h1>
 
-                <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-12">
-                    Stop guessing what works. Nail-It analyzes viral trends and psychological triggers
-                    to generate high-converting thumbnails that drive massive growth to your channel.
+                <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-12 leading-relaxed">
+                    Stop guessing, start winning. Nail-It leverages advanced neural networks and
+                    CTR-driven patterns to transform your ideas into high-performance thumbnails that demand the click.
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                    <Link href="/auth" className="group relative px-8 py-4 bg-blue-600 text-white rounded-full font-semibold overflow-hidden transition-all hover:bg-blue-700 active:scale-95">
-                        <span className="relative z-10">Start for Free</span>
+                    <Link href={user ? "/dashboard" : "/auth"} className="group relative px-8 py-4 bg-blue-600 text-white rounded-full font-semibold overflow-hidden transition-all hover:bg-blue-700 active:scale-95">
+                        <span className="relative z-10">{user ? "Go to Dashboard" : "Start for Free"}</span>
                         <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                     </Link>
                     <button className="px-8 py-4 bg-white/5 border border-white/10 rounded-full font-semibold hover:bg-white/10 transition-all backdrop-blur-sm">

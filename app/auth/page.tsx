@@ -33,10 +33,10 @@ export default function AuthPage() {
     const { signInWithGoogle, user, loading } = useAuth()
     const router = useRouter()
 
-    // 이미 로그인된 경우 홈으로 리다이렉트
+    // 이미 로그인된 경우 대시보드로 리다이렉트
     React.useEffect(() => {
         if (!loading && user) {
-            router.push("/")
+            router.push("/dashboard")
         }
     }, [user, loading, router])
 
@@ -131,11 +131,11 @@ export default function AuthPage() {
 
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-medium mb-3 backdrop-blur-md">
                             <SparkleIcon className="w-3 h-3 text-blue-500" />
-                            <span>Empower your creativity</span>
+                            <span>Engineered for the next generation of creators</span>
                         </div>
 
                         <h2 className="text-3xl font-bold tracking-tight text-center bg-gradient-to-b from-white to-white/60 bg-clip-text text-transparent">
-                            Join the Studio
+                            Enter the Studio
                         </h2>
                     </motion.div>
 
