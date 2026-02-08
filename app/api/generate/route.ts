@@ -18,6 +18,17 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
 
+        // Check credits
+        const { data: userData, error: userError } = await supabase
+            .from("users")
+            .select("credits")
+            .eq("id", user.id)
+            .single()
+
+        if (userError || !userData || userData.credits <= 0) {
+            return NextResponse.json({ error: "Insufficient credits. Please upgrade your plan." }, { status: 403 })
+        }
+
         // Initialize Gemini Nano Banana Pro
         const ai = new GoogleGenAI({
             apiKey: process.env.GEMINI_API_KEY,
@@ -68,6 +79,7 @@ export async function POST(request: Request) {
         })
 
         if (!response.candidates || response.candidates.length === 0) {
+            console.error("[generate] No candidates returned:", JSON.stringify(response))
             return NextResponse.json({ error: "No candidates returned from AI" }, { status: 500 })
         }
 
@@ -76,17 +88,29 @@ export async function POST(request: Request) {
 
         // Extract image and text from candidates
         const content = response.candidates[0].content
+
+        if (!content) {
+            console.error("[generate] Candidate 0 has no content")
+            return NextResponse.json({ error: "No content in AI response" }, { status: 500 })
+        }
+
+        console.log(`[generate] Response Candidates[0].Content Parts: ${JSON.stringify(content.parts || [])}`)
+
         if (content && content.parts) {
             for (const part of content.parts) {
                 if ("text" in part && part.text) {
                     responseText += part.text
                 } else if ("inlineData" in part && part.inlineData) {
+                    console.log(`[generate] Found inlineData part. MimeType: ${part.inlineData.mimeType}`)
                     imageData = part.inlineData.data || null
+                } else if ("fileData" in part && part.fileData) {
+                    console.log(`[generate] Found fileData part. URI: ${part.fileData.fileUri}`)
                 }
             }
         }
 
         if (!imageData) {
+            console.error("[generate] Missing imageData in response parts. ResponseText:", responseText)
             return NextResponse.json({ error: "Failed to generate image" }, { status: 500 })
         }
 
@@ -126,6 +150,12 @@ export async function POST(request: Request) {
         if (dbError) {
             console.error("DB error:", dbError)
         }
+
+        // Deduct credit
+        await supabase
+            .from("users")
+            .update({ credits: userData.credits - 1 })
+            .eq("id", user.id)
 
         return NextResponse.json({
             id: thumbnailId,
