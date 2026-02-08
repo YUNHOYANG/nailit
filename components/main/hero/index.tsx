@@ -101,9 +101,9 @@ export const Hero = () => {
                         <span className="relative z-10">{user ? "Go to Dashboard" : "Start for Free"}</span>
                         <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                     </Link>
-                    <button className="px-8 py-4 bg-white/5 border border-white/10 rounded-full font-semibold hover:bg-white/10 transition-all backdrop-blur-sm">
+                    <Link href="#how-it-works" className="px-8 py-4 bg-white/5 border border-white/10 rounded-full font-semibold hover:bg-white/10 transition-all backdrop-blur-sm text-center">
                         How it works
-                    </button>
+                    </Link>
                 </div>
             </div>
 

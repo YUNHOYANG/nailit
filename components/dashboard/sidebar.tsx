@@ -27,8 +27,8 @@ export const Sidebar = ({ thumbnails, onDelete, isOpen, setIsOpen }: SidebarProp
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={cn(
-                    "fixed top-1/2 -translate-y-1/2 z-50 flex h-14 w-6 items-center justify-center bg-[#202020] border border-white/10 rounded-r-xl text-zinc-400 transition-all hover:text-white hover:bg-[#252525] hover:w-8 shadow-2xl",
-                    isOpen ? "left-[344px]" : "left-0"
+                    "fixed top-1/2 -translate-y-1/2 z-50 flex h-14 w-6 items-center justify-center bg-[#202020] border border-white/10 rounded-r-xl text-zinc-400 transition-all hover:text-white hover:bg-[#252525] hover:w-8 shadow-2xl left-0",
+                    isOpen && "translate-x-[280px] md:translate-x-[344px]"
                 )}
             >
                 {isOpen ? <ChevronLeftIcon className="h-4 w-4" /> : <ChevronRightIcon className="h-4 w-4" />}
@@ -37,11 +37,11 @@ export const Sidebar = ({ thumbnails, onDelete, isOpen, setIsOpen }: SidebarProp
             <AnimatePresence>
                 {isOpen && (
                     <motion.aside
-                        initial={{ x: -360, opacity: 0 }}
+                        initial={{ x: -400, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: -360, opacity: 0 }}
+                        exit={{ x: -400, opacity: 0 }}
                         transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                        className="fixed left-6 top-[88px] bottom-6 w-[320px] z-40 bg-[#202020]/80 backdrop-blur-2xl border border-white/10 flex flex-col shadow-2xl rounded-[32px] overflow-hidden"
+                        className="fixed left-0 md:left-6 top-[80px] md:top-[88px] bottom-0 md:bottom-6 w-[280px] md:w-[320px] z-40 bg-[#202020]/95 md:bg-[#202020]/80 backdrop-blur-2xl border-r md:border border-white/10 flex flex-col shadow-2xl md:rounded-[32px] overflow-hidden"
                         style={{
                             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
                         }}

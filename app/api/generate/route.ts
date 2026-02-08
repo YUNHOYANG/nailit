@@ -29,143 +29,150 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Insufficient credits. Please upgrade your plan." }, { status: 403 })
         }
 
-        // Initialize Gemini Nano Banana Pro
-        const ai = new GoogleGenAI({
-            apiKey: process.env.GEMINI_API_KEY,
-        })
+        // 1. Deduct credit immediately (Atomic update-like check)
+        const { data: updatedUser, error: updateError } = await supabase
+            .from("users")
+            .update({ credits: userData.credits - 1 })
+            .eq("id", user.id)
+            .select("credits")
+            .single()
 
-        // Prepend system prompt to user input for context
-        const enhancedPrompt = `${SYSTEM_PROMPT}\n\nUSER REQUEST: ${prompt}`;
-        let contents: any[] = [{ text: enhancedPrompt }]
+        if (updateError) {
+            console.error("Failed to deduct credit:", updateError)
+            return NextResponse.json({ error: "Failed to process credits" }, { status: 500 })
+        }
 
-        // Process multiple reference images
-        if (images && Array.isArray(images)) {
-            for (const img of images) {
-                let base64Data: string;
-                let mimeType: string;
+        let thumbnailId = ""
+        let publicUrl = ""
 
-                if (img.startsWith('data:')) {
-                    // Handle base64 from file upload
-                    base64Data = img.split(",")[1]
-                    mimeType = img.split(",")[0].split(":")[1].split(";")[0]
-                } else {
-                    // Handle URL from Reference Gallery
-                    try {
-                        const imgResponse = await fetch(img);
-                        const arrayBuffer = await imgResponse.arrayBuffer();
-                        base64Data = Buffer.from(arrayBuffer).toString('base64');
-                        mimeType = imgResponse.headers.get('content-type') || 'image/png';
-                    } catch (fetchError) {
-                        console.error("Failed to fetch reference image:", img);
-                        continue; // Skip failed images
+        try {
+            // Initialize Gemini
+            const ai = new GoogleGenAI({
+                apiKey: process.env.GEMINI_API_KEY,
+            })
+
+            // Prepend system prompt to user input for context
+            const enhancedPrompt = `${SYSTEM_PROMPT}\n\nUSER REQUEST: ${prompt}`;
+            let contents: any[] = [{ text: enhancedPrompt }]
+
+            // Process multiple reference images
+            if (images && Array.isArray(images)) {
+                for (const img of images) {
+                    let base64Data: string;
+                    let mimeType: string;
+
+                    if (img.startsWith('data:')) {
+                        base64Data = img.split(",")[1]
+                        mimeType = img.split(",")[0].split(":")[1].split(";")[0]
+                    } else {
+                        try {
+                            const imgResponse = await fetch(img);
+                            const arrayBuffer = await imgResponse.arrayBuffer();
+                            base64Data = Buffer.from(arrayBuffer).toString('base64');
+                            mimeType = imgResponse.headers.get('content-type') || 'image/png';
+                        } catch (fetchError) {
+                            console.error("Failed to fetch reference image:", img);
+                            continue;
+                        }
                     }
+
+                    contents.push({
+                        inlineData: {
+                            mimeType,
+                            data: base64Data,
+                        },
+                    })
                 }
-
-                contents.push({
-                    inlineData: {
-                        mimeType,
-                        data: base64Data,
-                    },
-                })
             }
-        }
 
-        const response = await ai.models.generateContent({
-            model: "gemini-3-pro-image-preview",
-            contents: contents,
-            config: {
-                responseModalities: ["TEXT", "IMAGE"],
+            const response = await ai.models.generateContent({
+                model: "gemini-3-pro-image-preview",
+                contents: contents,
+                config: {
+                    responseModalities: ["TEXT", "IMAGE"],
+                }
+            })
+
+            if (!response.candidates || response.candidates.length === 0) {
+                throw new Error("No candidates returned from AI")
             }
-        })
 
-        if (!response.candidates || response.candidates.length === 0) {
-            console.error("[generate] No candidates returned:", JSON.stringify(response))
-            return NextResponse.json({ error: "No candidates returned from AI" }, { status: 500 })
-        }
+            let imageData: string | null = null
+            let responseText: string = ""
+            const content = response.candidates[0].content
 
-        let imageData: string | null = null
-        let responseText: string = ""
+            if (!content || !content.parts) {
+                throw new Error("No content in AI response")
+            }
 
-        // Extract image and text from candidates
-        const content = response.candidates[0].content
-
-        if (!content) {
-            console.error("[generate] Candidate 0 has no content")
-            return NextResponse.json({ error: "No content in AI response" }, { status: 500 })
-        }
-
-        console.log(`[generate] Response Candidates[0].Content Parts: ${JSON.stringify(content.parts || [])}`)
-
-        if (content && content.parts) {
             for (const part of content.parts) {
                 if ("text" in part && part.text) {
                     responseText += part.text
                 } else if ("inlineData" in part && part.inlineData) {
-                    console.log(`[generate] Found inlineData part. MimeType: ${part.inlineData.mimeType}`)
                     imageData = part.inlineData.data || null
-                } else if ("fileData" in part && part.fileData) {
-                    console.log(`[generate] Found fileData part. URI: ${part.fileData.fileUri}`)
                 }
             }
-        }
 
-        if (!imageData) {
-            console.error("[generate] Missing imageData in response parts. ResponseText:", responseText)
-            return NextResponse.json({ error: "Failed to generate image" }, { status: 500 })
-        }
+            if (!imageData) {
+                throw new Error("Failed to generate image data")
+            }
 
-        // Convert base64 to buffer
-        const buffer = Buffer.from(imageData, "base64")
-        const thumbnailId = crypto.randomUUID()
-        const filePath = `${user.id}/${thumbnailId}.png`
+            // Convert base64 to buffer
+            const buffer = Buffer.from(imageData, "base64")
+            thumbnailId = crypto.randomUUID()
+            const filePath = `${user.id}/${thumbnailId}.png`
 
-        // Upload to Supabase Storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
-            .from("thumbnails")
-            .upload(filePath, buffer, {
-                contentType: "image/png",
-                upsert: true,
-            })
+            // Upload to Supabase Storage
+            const { error: uploadError } = await supabase.storage
+                .from("thumbnails")
+                .upload(filePath, buffer, {
+                    contentType: "image/png",
+                    upsert: true,
+                })
 
-        if (uploadError) {
-            console.error("Upload error:", uploadError)
-            return NextResponse.json({ error: "Failed to upload image" }, { status: 500 })
-        }
+            if (uploadError) {
+                throw new Error("Failed to upload image to storage")
+            }
 
-        // Get Public URL
-        const { data: { publicUrl } } = supabase.storage
-            .from("thumbnails")
-            .getPublicUrl(filePath)
+            // Get Public URL
+            const { data: { publicUrl: generatedUrl } } = supabase.storage
+                .from("thumbnails")
+                .getPublicUrl(filePath)
 
-        // Save to Database
-        const { error: dbError } = await supabase
-            .from("thumbnails")
-            .insert({
+            publicUrl = generatedUrl
+
+            // Save to Database
+            const { error: dbError } = await supabase
+                .from("thumbnails")
+                .insert({
+                    id: thumbnailId,
+                    user_id: user.id,
+                    prompt: prompt,
+                    image_url: publicUrl,
+                })
+
+            if (dbError) console.error("History DB error:", dbError)
+
+            return NextResponse.json({
                 id: thumbnailId,
-                user_id: user.id,
-                prompt: prompt,
                 image_url: publicUrl,
+                prompt: prompt,
+                created_at: new Date().toISOString()
             })
 
-        if (dbError) {
-            console.error("DB error:", dbError)
+        } catch (error: any) {
+            console.error("Generation error - REFUNDING credit:", error)
+
+            // 2. Refund credit on error
+            await supabase
+                .from("users")
+                .update({ credits: userData.credits }) // Restore to previous value
+                .eq("id", user.id)
+
+            return NextResponse.json({ error: error.message || "Failed to generate image" }, { status: 500 })
         }
-
-        // Deduct credit
-        await supabase
-            .from("users")
-            .update({ credits: userData.credits - 1 })
-            .eq("id", user.id)
-
-        return NextResponse.json({
-            id: thumbnailId,
-            image_url: publicUrl,
-            prompt: prompt,
-            created_at: new Date().toISOString()
-        })
-
     } catch (error: any) {
-        console.error("Generation error:", error)
+        console.error("Top level generation error:", error)
         return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 })
     }
 }

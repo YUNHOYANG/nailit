@@ -93,6 +93,10 @@ export const PromptArea = () => {
 
             if (!response.ok) {
                 const errorData = await response.json();
+                if (response.status === 403) {
+                    window.dispatchEvent(new CustomEvent('open-pricing-modal'));
+                    return; // Early return to avoid triggering ErrorCard via catch block
+                }
                 throw new Error(errorData.error || "Failed to generate image");
             }
 

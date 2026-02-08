@@ -27,7 +27,7 @@ export default function DashboardPage() {
     const [isInitialLoading, setIsInitialLoading] = React.useState(true)
     const [isGenerating, setIsGenerating] = React.useState(false)
     const [generationError, setGenerationError] = React.useState<string | null>(null)
-    const [isSidebarOpen, setIsSidebarOpen] = React.useState(true)
+    const [isSidebarOpen, setIsSidebarOpen] = React.useState(false)
 
     React.useEffect(() => {
         if (!loading && !user) {

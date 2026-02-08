@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/use-auth"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { cn } from "@/lib/utils"
 
-import { CreditCardIcon, LogOutIcon, ZapIcon, CheckCircle2, SettingsIcon } from "lucide-react"
+import { CreditCardIcon, LogOutIcon, ZapIcon, CheckCircle2, SettingsIcon, CrownIcon } from "lucide-react"
 import { PricingModal } from "./pricing-modal"
 
 const Popover = PopoverPrimitive.Root
@@ -31,7 +31,7 @@ const PopoverContent = React.forwardRef<React.ElementRef<typeof PopoverPrimitive
 PopoverContent.displayName = PopoverPrimitive.Content.displayName
 
 export const DashboardNavbar = () => {
-    const { user, credits, plan, hasPolarId, signOut } = useAuth()
+    const { user, credits, plan, subscriptionStatus, hasPolarId, signOut } = useAuth()
     const searchParams = useSearchParams()
     const [isProfileOpen, setIsProfileOpen] = React.useState(false)
     const [isPricingOpen, setIsPricingOpen] = React.useState(false)
@@ -44,6 +44,12 @@ export const DashboardNavbar = () => {
             return () => clearTimeout(timer)
         }
     }, [searchParams])
+
+    useEffect(() => {
+        const handleOpenPricing = () => setIsPricingOpen(true)
+        window.addEventListener("open-pricing-modal", handleOpenPricing)
+        return () => window.removeEventListener("open-pricing-modal", handleOpenPricing)
+    }, [])
 
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 p-6 pointer-events-none">
@@ -102,18 +108,69 @@ export const DashboardNavbar = () => {
                             </button>
                         </PopoverTrigger>
 
-                        <PopoverContent className="w-60">
+                        <PopoverContent className="w-64">
                             <div className="flex flex-col gap-1">
                                 <div className="px-3 py-2 pb-3">
-                                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center">Account</p>
-                                    <p className="text-sm font-medium text-white truncate text-center mt-1">{user?.email}</p>
-                                    <div className="flex flex-col items-center gap-1.5 mt-2 bg-blue-500/10 py-2 px-3 rounded-lg border border-blue-500/20">
-                                        <div className="flex items-center gap-1.5">
-                                            <CreditCardIcon className="h-3 w-3 text-blue-400" />
-                                            <span className="text-[11px] font-bold text-blue-400">{credits} Credits</span>
+                                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center mb-1">Account</p>
+                                    <p className="text-sm font-medium text-white truncate text-center mb-3 px-2">{user?.email}</p>
+
+                                    {/* Plan & Credits Section */}
+                                    <div className={cn(
+                                        "relative overflow-hidden p-4 rounded-2xl border flex flex-col items-center gap-3 shadow-inner",
+                                        plan === "ultra" ? "bg-purple-500/10 border-purple-500/30" :
+                                            plan === "pro" ? "bg-blue-500/10 border-blue-500/30" :
+                                                "bg-zinc-500/10 border-white/10"
+                                    )}>
+                                        {/* Decorative Background Glow */}
+                                        <div className={cn(
+                                            "absolute -top-10 -right-10 w-20 h-20 blur-[40px] opacity-30 rounded-full",
+                                            plan === "ultra" ? "bg-purple-500" : plan === "pro" ? "bg-blue-500" : "bg-white"
+                                        )} />
+
+                                        <div className="flex flex-col items-center gap-1">
+                                            <div className="flex items-center gap-2">
+                                                <div className={cn(
+                                                    "p-1 rounded-lg",
+                                                    plan === "ultra" ? "bg-purple-500 text-white" :
+                                                        plan === "pro" ? "bg-blue-500 text-white" :
+                                                            "bg-zinc-700 text-zinc-400"
+                                                )}>
+                                                    {plan === "ultra" ? <CrownIcon className="h-3 w-3" /> : <ZapIcon className="h-3 w-3" />}
+                                                </div>
+                                                <span className={cn(
+                                                    "text-[10px] font-black uppercase tracking-widest",
+                                                    plan === "ultra" ? "text-purple-400" :
+                                                        plan === "pro" ? "text-blue-400" :
+                                                            "text-zinc-500"
+                                                )}>
+                                                    {plan === "ultra" ? "Ultra Member" : plan === "pro" ? "Pro Member" : "Free Plan"}
+                                                </span>
+                                            </div>
+
+                                            {/* Subscription Status Badge */}
+                                            {plan !== "free" && (
+                                                <div className={cn(
+                                                    "px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-tighter border",
+                                                    subscriptionStatus === "active" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" :
+                                                        subscriptionStatus === "past_due" ? "bg-orange-500/20 text-orange-400 border-orange-500/30" :
+                                                            "bg-zinc-500/20 text-zinc-400 border-white/10"
+                                                )}>
+                                                    Status: {subscriptionStatus}
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="text-[9px] font-black text-blue-400/70 border border-blue-500/30 px-2 py-0.5 rounded uppercase tracking-tighter">
-                                            Plan: {plan}
+
+                                        <div className="flex flex-col items-center relative">
+                                            <div className="flex items-center gap-2">
+                                                {/* Simple Yellow Circle for Credits */}
+                                                <div className="w-2.5 h-2.5 rounded-full bg-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.5)]" />
+                                                <span className="text-3xl font-black text-white tracking-tighter tabular-nums drop-shadow-lg">
+                                                    {credits}
+                                                </span>
+                                            </div>
+                                            <span className="text-[9px] font-medium text-zinc-500 uppercase tracking-[0.2em] mt-0.5">
+                                                Credits
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
